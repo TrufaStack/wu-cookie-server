@@ -59,7 +59,7 @@ app.get('/get-wu-cookies', async (req, res) => {
         console.log('🌐 Navegando a Western Union...');
         
         // CLAVE: Cambiar estrategia de navegación
-        await page.goto('https://www.westernunion.com/cl/es/web/send-money/start', {
+        await page.goto('https://www.westernunion.com/cl/es', {
             waitUntil: 'domcontentloaded', // Cambio de networkidle0 a domcontentloaded
             timeout: 60000 // Aumentado de 30s a 60s
         });
