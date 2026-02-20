@@ -45,7 +45,7 @@ app.get('/get-wu-cookies', async (req, res) => {
                 '--disable-setuid-sandbox'
             ],
             defaultViewport: chromium.defaultViewport,
-            executablePath: await chromium.executablePath(),
+            executablePath: process.env.RAILWAY_ENVIRONMENT ? '/usr/bin/chromium' : await chromium.executablePath(),
             headless: chromium.headless,
         });
 
