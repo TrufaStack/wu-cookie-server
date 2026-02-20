@@ -1,18 +1,15 @@
 const express = require('express');
-const puppeteerCore = require('puppeteer-core');
-const chromium = require('@sparticuz/chromium');
+const puppeteer = require('puppeteer');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-
-chromium.setHeadlessMode = true;
-chromium.setGraphicsMode = false;
 
 app.get('/', (req, res) => {
     res.json({ 
         status: 'online',
         service: 'Western Union Cookie Server',
-        platform: 'Railway',
+        platform: 'Railway + Docker',
+        version: '2.0',
         timestamp: new Date().toISOString(),
         endpoints: {
             health: '/health',
@@ -33,26 +30,21 @@ app.get('/get-wu-cookies', async (req, res) => {
     
     let browser;
     try {
-        console.log('📦 Lanzando navegador...');
+        console.log('📦 Lanzando navegador Puppeteer...');
         
-        // Detectar si estamos en Railway
-        const isRailway = process.env.RAILWAY_ENVIRONMENT !== undefined;
-        
-        browser = await puppeteerCore.launch({
+        browser = await puppeteer.launch({
+            headless: true,
             args: [
-                ...chromium.args,
+                '--no-sandbox',
+                '--disable-setuid-sandbox',
                 '--disable-dev-shm-usage',
                 '--disable-gpu',
-                '--single-process',
-                '--no-zygote',
-                '--disable-setuid-sandbox'
-            ],
-            defaultViewport: chromium.defaultViewport,
-            executablePath: isRailway ? '/usr/bin/chromium' : await chromium.executablePath(),
-            headless: chromium.headless,
+                '--disable-software-rasterizer',
+                '--disable-extensions'
+            ]
         });
 
-        console.log('✅ Navegador lanzado');
+        console.log('✅ Navegador lanzado exitosamente');
         
         const page = await browser.newPage();
         
@@ -60,17 +52,18 @@ app.get('/get-wu-cookies', async (req, res) => {
         
         console.log('🌐 Navegando a Western Union...');
         
-        await page.goto('https://www.westernunion.com/cl/es/web/send-money/start', {
+        await page.goto('https://www.westernunion.com/cl/es', {
             waitUntil: 'domcontentloaded',
             timeout: 60000
         });
         
-        console.log('✅ Página cargada (DOM)');
+        console.log('✅ Página cargada');
         console.log('⏱️ Esperando cookies...');
+        
         await page.waitForTimeout(8000);
         
         const cookies = await page.cookies();
-        console.log(`🍪 Cookies en memoria: ${cookies.length}`);
+        console.log(`🍪 Cookies obtenidas: ${cookies.length}`);
         
         const userAgent = await page.evaluate(() => navigator.userAgent);
         
@@ -78,7 +71,7 @@ app.get('/get-wu-cookies', async (req, res) => {
         console.log('🔒 Navegador cerrado');
         
         if (cookies.length === 0) {
-            throw new Error('No se obtuvieron cookies');
+            throw new Error('No se obtuvieron cookies de Western Union');
         }
         
         const cookieString = cookies.map(c => `${c.name}=${c.value}`).join('; ');
@@ -88,7 +81,7 @@ app.get('/get-wu-cookies', async (req, res) => {
             return (c == 'x' ? r : (r & 0x3 | 0x8)).toString(16);
         });
         
-        console.log(`✅ [SUCCESS] Cookies obtenidas: ${cookies.length}`);
+        console.log(`✅ [SUCCESS] Cookies listas para enviar`);
         
         res.json({
             success: true,
@@ -98,7 +91,8 @@ app.get('/get-wu-cookies', async (req, res) => {
             external_ref_id: `webapp-${generateUUID()}`,
             timestamp: Date.now(),
             cookies_count: cookies.length,
-            generated_at: new Date().toISOString()
+            generated_at: new Date().toISOString(),
+            platform: 'Railway-Docker'
         });
         
     } catch (error) {
@@ -108,7 +102,7 @@ app.get('/get-wu-cookies', async (req, res) => {
         if (browser) {
             try { 
                 await browser.close(); 
-                console.log('🔒 Navegador cerrado (error)');
+                console.log('🔒 Navegador cerrado (tras error)');
             } catch (e) {
                 console.error('Error cerrando navegador:', e.message);
             }
@@ -117,7 +111,7 @@ app.get('/get-wu-cookies', async (req, res) => {
         res.status(500).json({ 
             success: false, 
             error: error.message,
-            details: error.stack,
+            stack: error.stack,
             timestamp: new Date().toISOString()
         });
     }
@@ -125,5 +119,8 @@ app.get('/get-wu-cookies', async (req, res) => {
 
 app.listen(PORT, () => {
     console.log(`🚀 Servidor corriendo en puerto ${PORT}`);
-    console.log(`📍 Environment: ${process.env.RAILWAY_ENVIRONMENT ? 'Railway' : 'Local'}`);
+    console.log(`📍 Platform: Railway + Docker`);
+    console.log(`📍 Endpoints:`);
+    console.log(`   - GET /health`);
+    console.log(`   - GET /get-wu-cookies`);
 });
